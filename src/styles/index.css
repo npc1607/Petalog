@@ -1,0 +1,154 @@
+:root {
+  /* Biophilic palette — moss, leaf, earth, sky */
+  --moss-deep: #34502a;
+  --moss: #4a6b3a;
+  --leaf: #6b9b54;
+  --leaf-light: #8fb874;
+  --leaf-soft: #b6d49d;
+  --sage: #d7e4cc;
+  --sage-pale: #ecF3E6;
+  --sage-mist: #f2f6ee;
+
+  --earth: #8a6d4b;
+  --earth-deep: #5c4a36;
+  --earth-soft: #c9b89a;
+
+  --sky: #9cc4d6;
+  --sky-soft: #d8e8ee;
+
+  --paper: #faf8f1;
+  --paper-warm: #f4f0e5;
+
+  --terracotta: #c25b4a;
+  --amber-earth: #c98a3a;
+
+  /* Text — high contrast, warm ink */
+  --ink: #2a3126;
+  --ink-muted: #6b7560;
+  --ink-faint: #9aa596;
+
+  /* Organic radii */
+  --radius: 20px;
+  --radius-lg: 26px;
+  --radius-sm: 14px;
+  --radius-pill: 999px;
+
+  /* Soft sunlight shadows */
+  --shadow-xs: 0 1px 2px rgba(58, 80, 42, 0.05);
+  --shadow-sm: 0 2px 8px rgba(58, 80, 42, 0.06), 0 1px 2px rgba(58, 80, 42, 0.04);
+  --shadow: 0 6px 22px rgba(58, 80, 42, 0.09), 0 2px 6px rgba(58, 80, 42, 0.05);
+  --shadow-lg: 0 18px 50px rgba(58, 80, 42, 0.16), 0 6px 16px rgba(58, 80, 42, 0.08);
+
+  /* Motion — calm rhythm */
+  --ease: cubic-bezier(0.4, 0.2, 0.2, 1);
+  --t-fast: 150ms;
+  --t: 200ms;
+
+  --sidebar-w: 256px;
+
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  color: var(--ink);
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  background-color: var(--paper);
+  background-image:
+    radial-gradient(ellipse at 12% 8%, rgba(143, 184, 116, 0.22), transparent 42%),
+    radial-gradient(ellipse at 92% 88%, rgba(156, 196, 214, 0.18), transparent 48%),
+    radial-gradient(ellipse at 78% 12%, rgba(214, 228, 204, 0.25), transparent 40%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+  background-attachment: fixed;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: inherit;
+}
+
+input,
+textarea {
+  font-family: inherit;
+  font-size: 14px;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  line-height: 1.3;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--earth-soft);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--leaf);
+  background-clip: padding-box;
+}
+
+.app-layout {
+  display: flex;
+  min-height: 100vh;
+  position: relative;
+}
+
+.app-main {
+  flex: 1;
+  min-width: 0;
+  padding: 44px 48px 72px;
+  overflow-y: auto;
+  position: relative;
+  z-index: 1;
+}
+
+@media (max-width: 768px) {
+  .app-main {
+    padding: 28px 18px 56px;
+  }
+}

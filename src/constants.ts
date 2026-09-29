@@ -1,9 +1,55 @@
 import type { AppSettings } from './types'
 
+export interface ModelPreset {
+  id: string
+  name: string
+  provider: string
+  apiBaseUrl: string
+  model: string
+  description: string
+  helpUrl?: string
+  helpText?: string
+  badge?: string
+}
+
+export const MODEL_PRESETS: ModelPreset[] = [
+  {
+    id: 'deepseek-flash',
+    name: 'DeepSeek Flash',
+    provider: 'DeepSeek 官方',
+    apiBaseUrl: 'https://api.deepseek.com',
+    model: 'deepseek-flash',
+    description: 'DeepSeek 官方最新原生多模态视觉大模型，支持精准植物诊断与养护日程生成',
+    helpUrl: 'https://platform.deepseek.com/api_keys',
+    helpText: '前往 DeepSeek 开放平台获取 API Key',
+    badge: '官方推荐',
+  },
+  {
+    id: 'zhipu-glm-5v',
+    name: 'GLM-5V-Turbo',
+    provider: '智谱 AI',
+    apiBaseUrl: 'https://open.bigmodel.cn/api/paas/v4',
+    model: 'GLM-5V-Turbo',
+    description: '智谱开放平台多模态视觉模型',
+    helpUrl: 'https://open.bigmodel.cn/',
+    helpText: '前往智谱开放平台获取 API Key',
+  },
+  {
+    id: 'openai-gpt-4o',
+    name: 'GPT-4o',
+    provider: 'OpenAI',
+    apiBaseUrl: 'https://api.openai.com/v1',
+    model: 'gpt-4o',
+    description: 'OpenAI 官方旗舰多模态视觉模型',
+    helpUrl: 'https://platform.openai.com/api-keys',
+    helpText: '前往 OpenAI 平台获取 API Key',
+  },
+]
+
 export const DEFAULT_SETTINGS: AppSettings = {
-  apiBaseUrl: 'https://open.bigmodel.cn/api/paas/v4',
+  apiBaseUrl: 'https://api.deepseek.com',
   apiKey: '',
-  model: 'GLM-5V-Turbo',
+  model: 'deepseek-flash',
   notificationsEnabled: false,
 }
 

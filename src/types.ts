@@ -41,6 +41,31 @@ export interface CareTask {
   done: boolean
 }
 
+export interface CareLog {
+  id: string
+  plantId: string
+  taskId?: string
+  taskType: TaskType
+  taskTitle: string
+  timestamp: number
+  note?: string
+}
+
+export interface PlantObservation {
+  id: string
+  plantId: string
+  photo: string
+  timestamp: number
+  note?: string
+  analysis?: PlantAnalysis
+  completedTasks?: string[]
+}
+
+export interface PlantGrowthSummary {
+  summary: string
+  generatedAt: number
+}
+
 export interface Plant {
   id: string
   name: string
@@ -49,6 +74,9 @@ export interface Plant {
   schedule: CareTask[]
   createdAt: number
   lastAnalyzedAt?: number
+  observations?: PlantObservation[]
+  careLogs?: CareLog[]
+  growthSummary?: PlantGrowthSummary
 }
 
 export interface AppSettings {

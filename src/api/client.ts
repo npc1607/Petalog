@@ -1,4 +1,4 @@
-import type { AnalysisResult, AppSettings, PlantAnalysis } from '../types'
+import type { AnalysisResult, AppSettings, Plant, PlantAnalysis } from '../types'
 
 interface RawScheduleItem {
   type?: string
@@ -59,8 +59,14 @@ function buildMessages(imageDataUrl: string) {
 }
 
 function extractJson(text: string): RawAnalysis | null {
-  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/i)
-  const candidate = fenceMatch ? fenceMatch[1] : text
+  // Strip DeepSeek thinking tags (<think>...</think> or unclosed <think>...)
+  const cleaned = text
+    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+    .replace(/<think>[\s\S]*$/gi, '')
+    .trim()
+
+  const fenceMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/i)
+  const candidate = fenceMatch ? fenceMatch[1] : cleaned
 
   const start = candidate.indexOf('{')
   const end = candidate.lastIndexOf('}')
@@ -134,19 +140,42 @@ export async function analyzePlant(
   const baseUrl = settings.apiBaseUrl.replace(/\/$/, '')
   const endpoint = `${baseUrl}/chat/completions`
 
-  const res = await fetch(endpoint, {
+  const payload: Record<string, unknown> = {
+    model: settings.model,
+    messages: buildMessages(imageDataUrl),
+    temperature: 0.4,
+    response_format: { type: 'json_object' },
+  }
+
+  let res = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${settings.apiKey}`,
     },
-    body: JSON.stringify({
-      model: settings.model,
-      messages: buildMessages(imageDataUrl),
-      temperature: 0.4,
-      response_format: { type: 'json_object' },
-    }),
+    body: JSON.stringify(payload),
   })
+
+  // Fallback: If 400 occurs with response_format, retry without response_format
+  if (!res.ok && res.status === 400) {
+    const detail = await res.clone().text().catch(() => '')
+    if (
+      detail.toLowerCase().includes('response_format') ||
+      detail.toLowerCase().includes('json') ||
+      detail.toLowerCase().includes('schema') ||
+      detail.toLowerCase().includes('unrecognized')
+    ) {
+      delete payload.response_format
+      res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${settings.apiKey}`,
+        },
+        body: JSON.stringify(payload),
+      })
+    }
+  }
 
   if (!res.ok) {
     const detail = await res.text().catch(() => '')
@@ -171,6 +200,10 @@ export async function analyzePlant(
 }
 
 export async function testConnection(settings: AppSettings): Promise<string> {
+  if (!settings.apiKey) {
+    throw new Error('请先在设置中配置 API Key')
+  }
+
   const baseUrl = settings.apiBaseUrl.replace(/\/$/, '')
   const endpoint = `${baseUrl}/chat/completions`
   const res = await fetch(endpoint, {
@@ -182,7 +215,7 @@ export async function testConnection(settings: AppSettings): Promise<string> {
     body: JSON.stringify({
       model: settings.model,
       messages: [{ role: 'user', content: '请回复"ok"' }],
-      max_tokens: 10,
+      max_tokens: 60,
     }),
   })
   if (!res.ok) {
@@ -190,6 +223,126 @@ export async function testConnection(settings: AppSettings): Promise<string> {
     throw new Error(`连接失败 (${res.status})：${detail.slice(0, 200)}`)
   }
   const data = await res.json()
-  const reply: string = data?.choices?.[0]?.message?.content ?? ''
+  const rawReply: string = data?.choices?.[0]?.message?.content ?? ''
+  const reply = rawReply.replace(/<think>[\s\S]*?<\/think>/gi, '').trim() || rawReply.trim()
   return reply || '连接成功'
 }
+
+export async function generateGrowthSummary(
+  plant: Plant,
+  settings: AppSettings,
+): Promise<string> {
+  if (!settings.apiKey) {
+    throw new Error('请先在设置中配置 API Key')
+  }
+
+  const baseUrl = settings.apiBaseUrl.replace(/\/$/, '')
+  const endpoint = `${baseUrl}/chat/completions`
+
+  const observations =
+    plant.observations && plant.observations.length > 0
+      ? plant.observations
+      : [
+          {
+            id: 'init',
+            plantId: plant.id,
+            photo: plant.photo,
+            timestamp: plant.createdAt,
+            analysis: plant.analysis,
+          },
+        ]
+
+  const sorted = [...observations].sort((a, b) => a.timestamp - b.timestamp)
+
+  const obsDetails = sorted
+    .map((obs, idx) => {
+      const timeStr = new Date(obs.timestamp).toLocaleString('zh-CN', {
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+      const a = obs.analysis
+      if (!a) {
+        return `【记录 ${idx + 1}】时间：${timeStr}，暂未完成分析`
+      }
+      const issues = a.issues && a.issues.length > 0 ? a.issues.join('、') : '无明显问题'
+      const suggestions = a.suggestions && a.suggestions.length > 0 ? a.suggestions.join('；') : '保持现状'
+      return `【记录 ${idx + 1}】时间：${timeStr}
+- 健康评级：${a.healthStatus}
+- 诊断总结：${a.summary || '无'}
+- 发现问题：${issues}
+- 养护建议：${suggestions}`
+    })
+    .join('\n\n')
+
+  const careLogs = plant.careLogs && plant.careLogs.length > 0 ? plant.careLogs : []
+  const sortedLogs = [...careLogs].sort((a, b) => a.timestamp - b.timestamp)
+  const careLogText =
+    sortedLogs.length > 0
+      ? sortedLogs
+          .map((log) => {
+            const timeStr = new Date(log.timestamp).toLocaleString('zh-CN', {
+              month: '2-digit',
+              day: '2-digit',
+              hour: '2-digit',
+              minute: '2-digit',
+            })
+            return `- ${timeStr} 完成【${log.taskTitle}】`
+          })
+          .join('\n')
+      : '暂无独立养护动作打卡记录（可能按默认周期养护）'
+
+  const currentScheduleText =
+    plant.schedule.length > 0
+      ? plant.schedule
+          .map((t) => `- ${t.title}: 每隔 ${t.intervalDays} 天 (${t.frequency})，说明: ${t.description}`)
+          .join('\n')
+      : '暂未设定明确周期'
+
+  const prompt = `你是一位植物生理与家庭园艺专家。
+用户正在长期追踪观察植物「${plant.name}」（可能物种：${plant.analysis?.commonName || plant.analysis?.species || '未知'}）。
+
+【用户实际养护打卡历程】：
+${careLogText}
+
+【当前设定的养护任务周期】：
+${currentScheduleText}
+
+【按时间先后顺序记录的照片观察与 AI 诊断】：
+${obsDetails}
+
+请紧密结合用户的【实际养护打卡执行历程】与【植物健康状态演变】，撰写一份生动、深入、具有指导性的【植物生长复盘与养护周期调整建议】：
+1. 📈 【长势与养护效果复盘】：对照用户的浇水/施肥等日常打卡与植物叶片、健康状态的变化，评估前序养护动作的效果（是否浇水过多/过少、施肥是否适量等）。
+2. ⏱️ 【养护任务周期调整建议】：根据最新诊断的健康状态（如积水、干旱、缺乏养分等），明确指出当前各项任务的周期（如浇水、施肥间隔）是否需要调整，给出具体的调整天数建议。
+3. 🌿 【下一阶段精细化养护重点】：针对当前发现的关键隐患，给出未来几天到几周的实操提醒与注意事项。
+
+请直接返回条理清晰的中文文本（使用 Markdown 格式，层级分明，语气亲切专业）。`
+
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${settings.apiKey}`,
+    },
+    body: JSON.stringify({
+      model: settings.model,
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.5,
+    }),
+  })
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '')
+    throw new Error(`总结生成失败 (${res.status})：${detail.slice(0, 200)}`)
+  }
+
+  const data = await res.json()
+  const rawReply: string = data?.choices?.[0]?.message?.content ?? ''
+  const reply = rawReply.replace(/<think>[\s\S]*?<\/think>/gi, '').trim() || rawReply.trim()
+  if (!reply) {
+    throw new Error('生成的总结内容为空')
+  }
+  return reply
+}
+

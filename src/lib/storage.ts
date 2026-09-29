@@ -6,7 +6,26 @@ export function loadPlants(): Plant[] {
     const raw = localStorage.getItem(STORAGE_KEYS.plants)
     if (!raw) return []
     const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed : []
+    if (!Array.isArray(parsed)) return []
+    return parsed.map((p) => {
+      const observations =
+        p.observations && Array.isArray(p.observations) && p.observations.length > 0
+          ? p.observations
+          : [
+              {
+                id: `init-${p.id}`,
+                plantId: p.id,
+                photo: p.photo,
+                timestamp: p.createdAt || Date.now(),
+                analysis: p.analysis,
+              },
+            ]
+      return {
+        ...p,
+        observations,
+        careLogs: p.careLogs && Array.isArray(p.careLogs) ? p.careLogs : [],
+      }
+    })
   } catch {
     return []
   }

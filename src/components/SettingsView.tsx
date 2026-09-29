@@ -1,7 +1,7 @@
-import { AlertCircle, Bell, CheckCircle2, Loader2, Plug, ShieldAlert } from 'lucide-react'
+import { AlertCircle, Bell, CheckCircle2, ExternalLink, Loader2, Plug, ShieldAlert, Sparkles } from 'lucide-react'
 import { useState } from 'react'
 import { testConnection } from '../api/client'
-import { DEFAULT_SETTINGS } from '../constants'
+import { DEFAULT_SETTINGS, MODEL_PRESETS, type ModelPreset } from '../constants'
 import { getPermission, requestPermission } from '../lib/notifications'
 import { useStore } from '../hooks/useStore'
 
@@ -10,6 +10,18 @@ export function SettingsView() {
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null)
   const [permMsg, setPermMsg] = useState<string | null>(null)
+
+  const activePreset = MODEL_PRESETS.find(
+    (p) => p.apiBaseUrl === settings.apiBaseUrl && p.model === settings.model,
+  )
+
+  function handleSelectPreset(preset: ModelPreset) {
+    updateSettings({
+      apiBaseUrl: preset.apiBaseUrl,
+      model: preset.model,
+    })
+    setTestResult(null)
+  }
 
   async function handleTest() {
     setTesting(true)
@@ -49,6 +61,47 @@ export function SettingsView() {
           <h2><Plug size={18} /> API 配置</h2>
         </div>
 
+        <div className="presets-group">
+          <div className="presets-label">
+            <span><Sparkles size={14} /> 推荐模型预设</span>
+            <small>点击一键填入地址与模型</small>
+          </div>
+          <div className="presets-grid">
+            {MODEL_PRESETS.map((preset) => {
+              const isActive = activePreset?.id === preset.id
+              return (
+                <button
+                  key={preset.id}
+                  type="button"
+                  className={`preset-card ${isActive ? 'active' : ''}`}
+                  onClick={() => handleSelectPreset(preset)}
+                >
+                  <div className="preset-card-head">
+                    <span className="preset-name">{preset.name}</span>
+                    {preset.badge && <span className="preset-badge">{preset.badge}</span>}
+                  </div>
+                  <div className="preset-provider">{preset.provider}</div>
+                  <div className="preset-desc">{preset.description}</div>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {activePreset?.helpUrl && (
+          <div className="preset-tip">
+            <span>{activePreset.helpText || '如需获取该平台的 API Key，请点击前往平台'}</span>
+            <a
+              href={activePreset.helpUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="preset-link"
+            >
+              获取 API Key <ExternalLink size={12} />
+            </a>
+          </div>
+        )}
+
         <label className="field">
           <span>API Base URL</span>
           <input
@@ -64,10 +117,10 @@ export function SettingsView() {
           <input
             type="text"
             value={settings.model}
-            placeholder="GLM-5V-Turbo"
+            placeholder={DEFAULT_SETTINGS.model}
             onChange={(e) => updateSettings({ model: e.target.value })}
           />
-          <small>需要支持图像输入的视觉模型（如 GLM-5V-Turbo）才能分析照片</small>
+          <small>需要支持多模态图像理解的视觉模型（如 DeepSeek 官方 deepseek-flash）</small>
         </label>
 
         <label className="field">
@@ -78,7 +131,7 @@ export function SettingsView() {
             placeholder="sk-..."
             onChange={(e) => updateSettings({ apiKey: e.target.value })}
           />
-          <small>密钥仅保存在本地浏览器 localStorage，不会上传</small>
+          <small>密钥仅保存在本地浏览器 localStorage，不会上传至任何中转服务器</small>
         </label>
 
         <div className="settings-actions">

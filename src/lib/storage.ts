@@ -64,3 +64,78 @@ export function loadNotifiedDate(): string | null {
 export function saveNotifiedDate(dateStr: string): void {
   localStorage.setItem(STORAGE_KEYS.notifiedDate, dateStr)
 }
+
+export interface DbStatus {
+  ok: boolean
+  plantCount: number
+  lastUpdated: number
+  hasSettings: boolean
+}
+
+export async function fetchDbStatusApi(): Promise<DbStatus | null> {
+  try {
+    const res = await fetch('/api/status')
+    if (!res.ok) return null
+    const json = await res.json()
+    if (json && json.ok) {
+      return json as DbStatus
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+export async function fetchPlantsApi(): Promise<Plant[] | null> {
+  try {
+    const res = await fetch('/api/plants')
+    if (!res.ok) return null
+    const json = await res.json()
+    if (json && json.ok && Array.isArray(json.data)) {
+      return json.data
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+export async function savePlantsApi(plants: Plant[]): Promise<boolean> {
+  try {
+    const res = await fetch('/api/plants', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(plants),
+    })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
+export async function fetchSettingsApi(): Promise<AppSettings | null> {
+  try {
+    const res = await fetch('/api/settings')
+    if (!res.ok) return null
+    const json = await res.json()
+    if (json && json.ok && json.data) {
+      return { ...DEFAULT_SETTINGS, ...json.data }
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+export async function saveSettingsApi(settings: AppSettings): Promise<boolean> {
+  try {
+    const res = await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(settings),
+    })
+    return res.ok
+  } catch {
+    return false
+  }
+}

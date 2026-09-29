@@ -19,3 +19,6 @@ dist-ssr
 *.suo
 *.user
 *.tsbuildinfo
+
+# Database
+data/*.db*

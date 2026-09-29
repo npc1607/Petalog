@@ -1,10 +1,20 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { analyzePlant as apiAnalyze, generateGrowthSummary as apiGrowthSummary } from '../api/client'
 import { makeId } from '../lib/id'
 import { notifyTodaysTasks } from '../lib/notifications'
 import { getTodaysTasks } from '../lib/schedule'
-import { loadPlants, loadSettings, savePlants, saveSettings } from '../lib/storage'
+import {
+  fetchDbStatusApi,
+  fetchPlantsApi,
+  fetchSettingsApi,
+  loadPlants,
+  loadSettings,
+  savePlants,
+  savePlantsApi,
+  saveSettings,
+  saveSettingsApi,
+} from '../lib/storage'
 import type { AppSettings, CareLog, CareTask, Plant, PlantObservation } from '../types'
 
 interface StoreValue {
@@ -23,6 +33,8 @@ interface StoreValue {
   completeTask: (plantId: string, taskId: string) => void
   deletePlant: (plantId: string) => void
   updateSettings: (next: Partial<AppSettings>) => void
+  syncToDatabase: () => Promise<boolean>
+  syncFromDatabase: () => Promise<boolean>
   analyzingPlantId: string | null
   generatingSummaryPlantId: string | null
   analysisError: string | null
@@ -77,12 +89,107 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [generatingSummaryPlantId, setGeneratingSummaryPlantId] = useState<string | null>(null)
   const [analysisError, setAnalysisError] = useState<string | null>(null)
 
+  // Guard: Do not push empty state to server before initial sync finishes
+  const isReadyRef = useRef(false)
+  const lastKnownUpdateRef = useRef(0)
+
+  // Sync with SQLite backend and auto-migrate localStorage data
+  useEffect(() => {
+    let ignore = false
+
+    async function syncFromDb() {
+      try {
+        const [dbPlants, status] = await Promise.all([
+          fetchPlantsApi(),
+          fetchDbStatusApi(),
+        ])
+        const localPlants = loadPlants()
+
+        if (ignore) return
+
+        if (status?.lastUpdated) {
+          lastKnownUpdateRef.current = status.lastUpdated
+        }
+
+        if (dbPlants !== null && dbPlants.length > 0) {
+          // SQLite has data! Use SQLite data across all devices
+          setPlants(dbPlants)
+          savePlants(dbPlants)
+        } else if (localPlants.length > 0) {
+          // SQLite is empty, but this browser has existing data! Upload to SQLite
+          await savePlantsApi(localPlants)
+          lastKnownUpdateRef.current = Date.now()
+        }
+
+        const dbSettings = await fetchSettingsApi()
+        const localSettings = loadSettings()
+        if (dbSettings !== null && dbSettings.apiKey) {
+          setSettings(dbSettings)
+          saveSettings(dbSettings)
+        } else if (localSettings.apiKey) {
+          await saveSettingsApi(localSettings)
+        }
+      } finally {
+        isReadyRef.current = true
+      }
+    }
+
+    syncFromDb()
+
+    // Multi-device real-time sync: poll status every 3.5s and pull when updated
+    const pollInterval = setInterval(async () => {
+      if (document.visibilityState !== 'visible' || !isReadyRef.current) return
+      try {
+        const status = await fetchDbStatusApi()
+        if (!status || !status.ok) return
+        if (status.lastUpdated > lastKnownUpdateRef.current) {
+          const latest = await fetchPlantsApi()
+          if (latest && !ignore) {
+            lastKnownUpdateRef.current = status.lastUpdated
+            setPlants(latest)
+            savePlants(latest)
+          }
+        }
+      } catch (err) {
+        console.warn('Poll status error:', err)
+      }
+    }, 3500)
+
+    const handleVisibility = async () => {
+      if (document.visibilityState === 'visible' && isReadyRef.current) {
+        const status = await fetchDbStatusApi()
+        if (status && status.lastUpdated > lastKnownUpdateRef.current) {
+          const latest = await fetchPlantsApi()
+          if (latest && !ignore) {
+            lastKnownUpdateRef.current = status.lastUpdated
+            setPlants(latest)
+            savePlants(latest)
+          }
+        }
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+
+    return () => {
+      ignore = true
+      clearInterval(pollInterval)
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
+  }, [])
+
   useEffect(() => {
     savePlants(plants)
+    if (isReadyRef.current) {
+      lastKnownUpdateRef.current = Date.now()
+      savePlantsApi(plants)
+    }
   }, [plants])
 
   useEffect(() => {
     saveSettings(settings)
+    if (isReadyRef.current) {
+      saveSettingsApi(settings)
+    }
   }, [settings])
 
   useEffect(() => {
@@ -346,6 +453,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setSettings((prev) => ({ ...prev, ...next }))
   }, [])
 
+  const syncToDatabase = useCallback(async (): Promise<boolean> => {
+    const ok = await savePlantsApi(plants)
+    await saveSettingsApi(settings)
+    return ok
+  }, [plants, settings])
+
+  const syncFromDatabase = useCallback(async (): Promise<boolean> => {
+    const dbPlants = await fetchPlantsApi()
+    if (dbPlants && dbPlants.length > 0) {
+      setPlants(dbPlants)
+      savePlants(dbPlants)
+    }
+    const dbSettings = await fetchSettingsApi()
+    if (dbSettings) {
+      setSettings(dbSettings)
+      saveSettings(dbSettings)
+    }
+    return !!dbPlants
+  }, [])
+
   const value = useMemo<StoreValue>(
     () => ({
       plants,
@@ -358,6 +485,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       completeTask,
       deletePlant,
       updateSettings,
+      syncToDatabase,
+      syncFromDatabase,
       analyzingPlantId,
       generatingSummaryPlantId,
       analysisError,
@@ -373,6 +502,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       completeTask,
       deletePlant,
       updateSettings,
+      syncToDatabase,
+      syncFromDatabase,
       analyzingPlantId,
       generatingSummaryPlantId,
       analysisError,

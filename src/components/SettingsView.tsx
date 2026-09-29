@@ -1,4 +1,16 @@
-import { AlertCircle, Bell, CheckCircle2, ExternalLink, Loader2, Plug, ShieldAlert, Sparkles } from 'lucide-react'
+import {
+  AlertCircle,
+  Bell,
+  CheckCircle2,
+  Database,
+  DownloadCloud,
+  ExternalLink,
+  Loader2,
+  Plug,
+  ShieldAlert,
+  Sparkles,
+  UploadCloud,
+} from 'lucide-react'
 import { useState } from 'react'
 import { testConnection } from '../api/client'
 import { DEFAULT_SETTINGS, MODEL_PRESETS, type ModelPreset } from '../constants'
@@ -6,10 +18,12 @@ import { getPermission, requestPermission } from '../lib/notifications'
 import { useStore } from '../hooks/useStore'
 
 export function SettingsView() {
-  const { settings, updateSettings } = useStore()
+  const { settings, updateSettings, plants, syncToDatabase, syncFromDatabase } = useStore()
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null)
   const [permMsg, setPermMsg] = useState<string | null>(null)
+  const [syncing, setSyncing] = useState(false)
+  const [syncMsg, setSyncMsg] = useState<{ ok: boolean; msg: string } | null>(null)
 
   const activePreset = MODEL_PRESETS.find(
     (p) => p.apiBaseUrl === settings.apiBaseUrl && p.model === settings.model,
@@ -146,6 +160,89 @@ export function SettingsView() {
             </div>
           )}
         </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel-head">
+          <h2><Database size={18} /> SQLite 本地数据库与局域网同步</h2>
+        </div>
+        <p className="settings-desc">
+          数据保存在电脑本地 SQLite 数据库（<code>data/petalog.db</code>）。局域网内的手机或其它设备访问时，读写同一份数据库。
+        </p>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, margin: '14px 0' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              fontSize: 13,
+              background: 'var(--sage-mist)',
+              padding: '10px 14px',
+              borderRadius: 'var(--radius-sm)',
+            }}
+          >
+            <span>当前植物数量</span>
+            <strong style={{ color: 'var(--moss-deep)' }}>{plants.length} 株植物</strong>
+          </div>
+        </div>
+
+        <div className="settings-actions">
+          <button
+            className="btn-primary"
+            onClick={async () => {
+              setSyncing(true)
+              setSyncMsg(null)
+              try {
+                const ok = await syncToDatabase()
+                if (ok) {
+                  setSyncMsg({ ok: true, msg: `已成功同步 ${plants.length} 株植物至 SQLite 数据库` })
+                } else {
+                  setSyncMsg({ ok: false, msg: '同步失败，请检查服务是否运行' })
+                }
+              } catch (e: any) {
+                setSyncMsg({ ok: false, msg: e.message || '同步失败' })
+              } finally {
+                setSyncing(false)
+              }
+            }}
+            disabled={syncing}
+          >
+            {syncing ? <Loader2 size={16} className="spin" /> : <UploadCloud size={16} />}
+            同步当前数据至 SQLite
+          </button>
+
+          <button
+            className="btn-ghost"
+            onClick={async () => {
+              setSyncing(true)
+              setSyncMsg(null)
+              try {
+                const ok = await syncFromDatabase()
+                if (ok) {
+                  setSyncMsg({ ok: true, msg: '已从 SQLite 数据库拉取最新数据' })
+                } else {
+                  setSyncMsg({ ok: false, msg: '数据库暂无数据或拉取失败' })
+                }
+              } catch (e: any) {
+                setSyncMsg({ ok: false, msg: e.message || '拉取失败' })
+              } finally {
+                setSyncing(false)
+              }
+            }}
+            disabled={syncing}
+          >
+            <DownloadCloud size={16} />
+            从数据库刷新拉取
+          </button>
+        </div>
+
+        {syncMsg && (
+          <div style={{ marginTop: 10 }} className={`test-result ${syncMsg.ok ? 'ok' : 'err'}`}>
+            {syncMsg.ok ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+            <span>{syncMsg.msg}</span>
+          </div>
+        )}
       </section>
 
       <section className="panel">

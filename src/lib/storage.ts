@@ -100,16 +100,121 @@ export async function fetchPlantsApi(): Promise<Plant[] | null> {
   }
 }
 
-export async function savePlantsApi(plants: Plant[]): Promise<boolean> {
+export async function fetchPlantByIdApi(id: string): Promise<Plant | null> {
+  try {
+    const res = await fetch(`/api/plants/${encodeURIComponent(id)}`)
+    if (!res.ok) return null
+    const json = await res.json()
+    return json?.ok ? json.data : null
+  } catch {
+    return null
+  }
+}
+
+export async function createPlantApi(plant: Plant): Promise<Plant | null> {
   try {
     const res = await fetch('/api/plants', {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(plant),
+    })
+    if (!res.ok) return null
+    const json = await res.json()
+    return json?.ok ? json.data : null
+  } catch {
+    return null
+  }
+}
+
+export async function updatePlantApi(id: string, updates: Partial<Plant>): Promise<Plant | null> {
+  try {
+    const res = await fetch(`/api/plants/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    })
+    if (!res.ok) return null
+    const json = await res.json()
+    return json?.ok ? json.data : null
+  } catch {
+    return null
+  }
+}
+
+export async function deletePlantApi(id: string): Promise<boolean> {
+  try {
+    const res = await fetch(`/api/plants/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
+export async function savePlantsApi(plants: Plant[]): Promise<boolean> {
+  try {
+    const res = await fetch('/api/plants', {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(plants),
     })
     return res.ok
   } catch {
     return false
+  }
+}
+
+export async function addObservationApi(
+  plantId: string,
+  observation: any,
+): Promise<any | null> {
+  try {
+    const res = await fetch(`/api/plants/${encodeURIComponent(plantId)}/observations`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(observation),
+    })
+    if (!res.ok) return null
+    const json = await res.json()
+    return json?.ok ? json.data : null
+  } catch {
+    return null
+  }
+}
+
+export async function deleteObservationApi(
+  plantId: string,
+  obsId: string,
+): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `/api/plants/${encodeURIComponent(plantId)}/observations/${encodeURIComponent(obsId)}`,
+      {
+        method: 'DELETE',
+      },
+    )
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
+export async function saveGrowthSummaryApi(
+  plantId: string,
+  summary: string,
+): Promise<any | null> {
+  try {
+    const res = await fetch(`/api/plants/${encodeURIComponent(plantId)}/summary`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ summary }),
+    })
+    if (!res.ok) return null
+    const json = await res.json()
+    return json?.ok ? json.data : null
+  } catch {
+    return null
   }
 }
 
@@ -130,7 +235,7 @@ export async function fetchSettingsApi(): Promise<AppSettings | null> {
 export async function saveSettingsApi(settings: AppSettings): Promise<boolean> {
   try {
     const res = await fetch('/api/settings', {
-      method: 'POST',
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(settings),
     })

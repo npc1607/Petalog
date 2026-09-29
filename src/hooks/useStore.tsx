@@ -5,6 +5,9 @@ import { makeId } from '../lib/id'
 import { notifyTodaysTasks } from '../lib/notifications'
 import { getTodaysTasks } from '../lib/schedule'
 import {
+  createPlantApi,
+  deleteObservationApi,
+  deletePlantApi,
   fetchDbStatusApi,
   fetchPlantsApi,
   fetchSettingsApi,
@@ -218,6 +221,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       ],
       careLogs: [],
     }
+    createPlantApi(plant).catch(() => {})
     setPlants((prev) => [plant, ...prev])
     return id
   }, [])
@@ -364,6 +368,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   )
 
   const deleteObservation = useCallback((plantId: string, obsId: string) => {
+    deleteObservationApi(plantId, obsId).catch(() => {})
     setPlants((prev) =>
       prev.map((p) => {
         if (p.id !== plantId) return p
@@ -446,6 +451,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const deletePlant = useCallback((plantId: string) => {
+    deletePlantApi(plantId).catch(() => {})
     setPlants((prev) => prev.filter((p) => p.id !== plantId))
   }, [])
 

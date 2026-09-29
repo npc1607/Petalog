@@ -5,6 +5,7 @@ export type View = 'today' | 'plants' | 'settings'
 interface Props {
   current: View
   onNavigate: (view: View) => void
+  onGoLanding?: () => void
 }
 
 const NAV = [
@@ -13,10 +14,15 @@ const NAV = [
   { key: 'settings' as const, label: '设置', icon: SettingsIcon },
 ]
 
-export function Sidebar({ current, onNavigate }: Props) {
+export function Sidebar({ current, onNavigate, onGoLanding }: Props) {
   return (
     <aside className="sidebar">
-      <div className="brand">
+      <div
+        className="brand"
+        onClick={onGoLanding}
+        title={onGoLanding ? '点击重温植物艺术封面' : undefined}
+        style={{ cursor: onGoLanding ? 'pointer' : 'default' }}
+      >
         <Leaf size={24} className="brand-icon" />
         <span className="brand-name">Petalog</span>
       </div>
@@ -34,6 +40,15 @@ export function Sidebar({ current, onNavigate }: Props) {
       </nav>
       <div className="sidebar-foot">
         <p>植物养护 · 每日提醒</p>
+        {onGoLanding && (
+          <button
+            className="brand-cover-btn"
+            onClick={onGoLanding}
+            title="回到开屏艺术封面"
+          >
+            🌿 植物扉页
+          </button>
+        )}
       </div>
     </aside>
   )

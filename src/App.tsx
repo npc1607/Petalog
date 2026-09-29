@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { AddPlantModal } from './components/AddPlantModal'
+import { LandingCover } from './components/LandingCover'
 import { Layout } from './components/Layout'
 import { PlantDetail } from './components/PlantDetail'
 import { PlantListView } from './components/PlantListView'
@@ -10,6 +11,7 @@ import { TodayView } from './components/TodayView'
 import { StoreProvider, useStore } from './hooks/useStore'
 
 function AppInner() {
+  const [showLanding, setShowLanding] = useState(true)
   const [view, setView] = useState<View>('today')
   const [openPlantId, setOpenPlantId] = useState<string | null>(null)
   const [addOpen, setAddOpen] = useState(false)
@@ -44,14 +46,27 @@ function AppInner() {
   }
 
   return (
-    <Layout sidebar={<Sidebar current={view} onNavigate={navigate} />}>
-      {content}
-      <AddPlantModal
-        open={addOpen}
-        onClose={() => setAddOpen(false)}
-        onConfirm={handleAddPlant}
-      />
-    </Layout>
+    <>
+      {showLanding && (
+        <LandingCover onEnter={() => setShowLanding(false)} />
+      )}
+      <Layout
+        sidebar={
+          <Sidebar
+            current={view}
+            onNavigate={navigate}
+            onGoLanding={() => setShowLanding(true)}
+          />
+        }
+      >
+        {content}
+        <AddPlantModal
+          open={addOpen}
+          onClose={() => setAddOpen(false)}
+          onConfirm={handleAddPlant}
+        />
+      </Layout>
+    </>
   )
 }
 
